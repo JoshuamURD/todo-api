@@ -1,4 +1,4 @@
-module joshuamURD/go-todo-api
+module joshuamURD/go-auth-api
 
 go 1.23.5
 

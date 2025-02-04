@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -28,23 +27,11 @@ type Client struct {
 	Phone string `json:"phone"`
 }
 
-var db *sql.DB
-
 func main() {
-	var err error
-	// Open (or create) the SQLite database using sql.Open with the correct driver name
-	db, err = sql.Open("sqlite", "./data.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Create table if it does not exist.
-	createTable()
 
 	// Setup routes.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/items", itemsHandler)
+	mux.HandleFunc("/api/clients", clientsHandler)
 	// Serve static files (the React production build)
 	mux.Handle("/", http.FileServer(http.Dir("./build")))
 
@@ -55,22 +42,8 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", csrfHandler))
 }
 
-// createTable creates the items table if needed.
-func createTable() {
-	query := `
-	CREATE TABLE IF NOT EXISTS clients (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		email TEXT NOT NULL,
-		phone TEXT NOT NULL
-	);`
-	if _, err := db.Exec(query); err != nil {
-		log.Fatal("Failed to create table:", err)
-	}
-}
-
-// itemsHandler handles GET and POST requests for items.
-func itemsHandler(w http.ResponseWriter, r *http.Request) {
+// clientsHandler handles GET and POST requests for clients.
+func clientsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		clients, err := getClients()
@@ -78,7 +51,7 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to get clients", http.StatusInternalServerError)
 			return
 		}
-		jsonResponse(w, items)
+		jsonResponse(w, clients)
 	case "POST":
 		var newClient Client
 		if err := json.NewDecoder(r.Body).Decode(&newClient); err != nil {
@@ -95,35 +68,6 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-}
-
-// getItems retrieves all items from the database.
-func getClients() ([]Client, error) {
-	rows, err := db.Query("SELECT id, name, email, phone FROM clients")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var clients []Client
-	for rows.Next() {
-		var client Client
-		if err := rows.Scan(&client.ID, &client.Name, &client.Email, &client.Phone); err != nil {
-			return nil, err
-		}
-		clients = append(clients, client)
-	}
-	return clients, nil
-}
-
-// addItem inserts a new item into the database.
-func addClient(name string) (int, error) {
-	result, err := db.Exec("INSERT INTO clients (name) VALUES (?)", name)
-	if err != nil {
-		return 0, err
-	}
-	id, err := result.LastInsertId()
-	return int(id), err
 }
 
 // jsonResponse writes the given data as JSON.
