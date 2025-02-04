@@ -2,68 +2,88 @@ package db
 
 import (
 	"database/sql"
+	"joshuamURD/go-auth-api/pkgs/models"
 	"log"
 
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
-// DB is a wrapper around the sql.DB type.
-type DB struct {
+// SQLiteRepository is a wrapper around the sql.DB type.
+type SQLiteRepository struct {
 	db *sql.DB
 }
 
+// Database is an interface that defines the methods for the SQLiteRepository.
 type Database interface {
-	GetAll() ([]Client, error)
-	Add(Client) (int, error)
+	GetAll() ([]models.User, error)
+	Create(models.User) (int, error)
+	Delete(models.User) error
+	Update(models.User) error
+	GetByEmail(string) (models.User, error)
+	GetByID(uuid.UUID) (models.User, error)
 }
 
-func NewDB(path string) *DB {
+// TableCreator defines the interface for table creation
+type TableCreator interface {
+	CreateTable(db *sql.DB) error
+}
 
+// SQLiteTableCreator implements TableCreator for SQLite
+type SQLiteTableCreator struct{}
+
+func (s SQLiteTableCreator) CreateTable(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		email TEXT NOT NULL,
+		verified BOOLEAN NOT NULL,
+		failed_attempts INTEGER NOT NULL,
+		locked BOOLEAN NOT NULL,
+		hashed_password TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);`
+	_, err := db.Exec(query)
+	return err
+}
+
+// NewSQLiteRepository creates a new SQLiteRepository.
+func NewSQLiteRepository(path string, creator TableCreator) *SQLiteRepository {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	createTable(db)
-	defer db.Close()
 
-	return &DB{db: db}
-}
-
-func createTable(db *sql.DB) {
-	query := `
-	CREATE TABLE IF NOT EXISTS clients (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		email TEXT NOT NULL,
-		phone TEXT NOT NULL
-	);`
-	if _, err := db.Exec(query); err != nil {
+	if err := creator.CreateTable(db); err != nil {
 		log.Fatal("Failed to create table:", err)
 	}
+
+	return &SQLiteRepository{db: db}
 }
 
 // getItems retrieves all items from the database.
-func getClients() ([]Client, error) {
-	rows, err := db.Query("SELECT id, name, email, phone FROM clients")
+func (d SQLiteRepository) GetAll() ([]models.User, error) {
+	var users []models.User
+	rows, err := d.db.Query("SELECT id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at FROM users")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var clients []Client
 	for rows.Next() {
-		var client Client
-		if err := rows.Scan(&client.ID, &client.Name, &client.Email, &client.Phone); err != nil {
+		var user models.User
+		if err := rows.Scan(&user.ID, &user.Email, &user.Verified, &user.FailedAttempts, &user.Locked, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			return nil, err
 		}
-		clients = append(clients, client)
+		users = append(users, user)
 	}
-	return clients, nil
+
+	return users, nil
 }
 
 // addItem inserts a new item into the database.
-func addClient(name string) (int, error) {
-	result, err := db.Exec("INSERT INTO clients (name) VALUES (?)", name)
+func (d SQLiteRepository) Create(user models.User) (int, error) {
+	result, err := d.db.Exec("INSERT INTO users (id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", user.ID, user.Email, user.Verified, user.FailedAttempts, user.Locked, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		return 0, err
 	}
