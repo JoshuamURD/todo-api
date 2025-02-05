@@ -7,6 +7,7 @@ import (
 )
 
 // Hasher defines the interface for password hashing operations
+// It is used to hash and compare passwords
 type Hasher interface {
 	Hash(password string) (string, error)
 	Compare(hashedPassword, plainPassword string) bool
