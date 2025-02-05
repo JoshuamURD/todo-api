@@ -7,4 +7,5 @@ import (
 
 type AuthService interface {
 	Authenticate(ctx context.Context, email, password string) (models.User, error)
+	RefreshToken(ctx context.Context, refreshToken string) (string, error)
 }
