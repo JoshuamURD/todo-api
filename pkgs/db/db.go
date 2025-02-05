@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"joshuamURD/go-auth-api/pkgs/models"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -18,8 +19,6 @@ type SQLiteRepository struct {
 type Database interface {
 	GetAll() ([]models.User, error)
 	Create(models.User) (int, error)
-	Delete(models.User) error
-	Update(models.User) error
 	GetByEmail(string) (models.User, error)
 	GetByID(uuid.UUID) (models.User, error)
 }
@@ -55,6 +54,16 @@ func NewSQLiteRepository(path string, creator TableCreator) *SQLiteRepository {
 		log.Fatal(err)
 	}
 
+	// Configure connection pool
+	db.SetMaxOpenConns(25)                 // Limit max open connections
+	db.SetMaxIdleConns(25)                 // Set max idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // Set max lifetime for connections
+
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+
 	if err := creator.CreateTable(db); err != nil {
 		log.Fatal("Failed to create table:", err)
 	}
@@ -62,8 +71,13 @@ func NewSQLiteRepository(path string, creator TableCreator) *SQLiteRepository {
 	return &SQLiteRepository{db: db}
 }
 
+// Close closes the database connection
+func (d *SQLiteRepository) Close() error {
+	return d.db.Close()
+}
+
 // getItems retrieves all items from the database.
-func (d SQLiteRepository) GetAll() ([]models.User, error) {
+func (d *SQLiteRepository) GetAll() ([]models.User, error) {
 	var users []models.User
 	rows, err := d.db.Query("SELECT id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at FROM users")
 	if err != nil {
@@ -82,11 +96,25 @@ func (d SQLiteRepository) GetAll() ([]models.User, error) {
 }
 
 // addItem inserts a new item into the database.
-func (d SQLiteRepository) Create(user models.User) (int, error) {
+func (d *SQLiteRepository) Create(user models.User) (int, error) {
 	result, err := d.db.Exec("INSERT INTO users (id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", user.ID, user.Email, user.Verified, user.FailedAttempts, user.Locked, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		return 0, err
 	}
 	id, err := result.LastInsertId()
 	return int(id), err
+}
+
+func (d *SQLiteRepository) GetByEmail(email string) (models.User, error) {
+	var user models.User
+	row := d.db.QueryRow("SELECT id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at FROM users WHERE email = ?", email)
+	err := row.Scan(&user.ID, &user.Email, &user.Verified, &user.FailedAttempts, &user.Locked, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt)
+	return user, err
+}
+
+func (d *SQLiteRepository) GetByID(id uuid.UUID) (models.User, error) {
+	var user models.User
+	row := d.db.QueryRow("SELECT id, email, verified, failed_attempts, locked, hashed_password, created_at, updated_at FROM users WHERE id = ?", id)
+	err := row.Scan(&user.ID, &user.Email, &user.Verified, &user.FailedAttempts, &user.Locked, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt)
+	return user, err
 }
