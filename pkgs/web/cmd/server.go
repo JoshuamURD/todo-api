@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"joshuamURD/go-auth-api/pkgs/controllers"
 	"net/http"
 
@@ -20,10 +19,4 @@ func main() {
 	}
 
 	server.ListenAndServe()
-}
-
-// jsonResponse writes the given data as JSON.
-func jsonResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
 }
