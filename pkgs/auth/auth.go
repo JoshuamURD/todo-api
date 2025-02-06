@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -41,6 +42,7 @@ func NewJWTAuthService(privateKey *rsa.PrivateKey) *JWTAuthService {
 // It takes a context and a user ID and returns the access and refresh tokens
 func (j *JWTAuthService) GenerateTokens(ctx context.Context, userID string) (accessToken, refreshToken string, err error) {
 	// Generate access token (short-lived)
+	// It takes a context and a user ID and returns the access and refresh tokens
 	accessClaims := JWTClaims{
 		UserID: userID,
 		Type:   "access",
@@ -50,9 +52,10 @@ func (j *JWTAuthService) GenerateTokens(ctx context.Context, userID string) (acc
 		},
 	}
 
+	// Generate access token with helper function
 	accessToken, err = j.generateToken(accessClaims)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate refresh token (longer-lived)
@@ -65,11 +68,13 @@ func (j *JWTAuthService) GenerateTokens(ctx context.Context, userID string) (acc
 		},
 	}
 
+	// Generate refresh token with helper function
 	refreshToken, err = j.generateToken(refreshClaims)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	// Return the access and refresh tokens
 	return accessToken, refreshToken, nil
 }
 
@@ -79,11 +84,14 @@ func (j *JWTAuthService) generateToken(claims JWTClaims) (string, error) {
 	if j.keys.privateKey == nil {
 		return "", errors.New("private key is not initialized")
 	}
+
+	// Sign the token with the private key
 	return token.SignedString(j.keys.privateKey)
 }
 
 // ValidateToken validates the JWT token and returns the claims
 func (j *JWTAuthService) ValidateToken(tokenString string) (*JWTClaims, error) {
+
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, errors.New("unexpected signing method")
