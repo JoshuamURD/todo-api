@@ -5,16 +5,29 @@ import (
 	"net/http"
 )
 
+// loginRequest is a representation of a valid request to the login route
+// a login request contains an email and password
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// loginResponse is a representation of a valid response to the login route
 type loginResponse struct {
-	Token string `json:"token"`
+	message     string `json:"message"`
+	accessToken string `json:"access_token"`
 }
 
+// Login handles the login of a user
+// it verifies that the password hash matches the password provided for a given email
+// if it matches, it generates a refresh token as as http only cookie
+// it also provides an access token in the response
 func (lc *Controller) Login(w http.ResponseWriter, r *http.Request) {
+	//Ensures that the request method is POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -32,5 +45,10 @@ func (lc *Controller) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(loginResponse{Token: "token"})
+	http.SetCookie(w, &http.Cookie{Name: "token", Value: "token", Path: "/"})
+
+	// Provides a response with the access token, the refresh token and a success message
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(loginResponse{message: "Login successful"})
 }

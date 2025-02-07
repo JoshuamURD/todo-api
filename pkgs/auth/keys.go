@@ -23,21 +23,21 @@ func GenerateRSAKeys(privateKeyPath, publicKeyPath string) error {
 		Bytes: privateKeyBytes,
 	})
 
+	// Save private key to file
 	if err := os.WriteFile(privateKeyPath, privateKeyPEM, 0600); err != nil {
 		return err
 	}
 
-	// Save public key
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return err
 	}
-
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PUBLIC KEY",
 		Bytes: publicKeyBytes,
 	})
 
+	// Save public key to file
 	return os.WriteFile(publicKeyPath, publicKeyPEM, 0644)
 }
 
