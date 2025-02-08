@@ -3,8 +3,11 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"joshuamURD/go-auth-api/pkgs/models"
+
+	"github.com/google/uuid"
 )
 
 // registerRequest is a struct that contains the email and password of the user
@@ -50,8 +53,14 @@ func (rc *Controller) Register(w http.ResponseWriter, r *http.Request) {
 
 	//Creates a new user with the email and hashed password
 	user := models.User{
+		ID:             uuid.New(),
 		Email:          req.Email,
 		HashedPassword: hashedPassword,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		Verified:       false,
+		FailedAttempts: 0,
+		Locked:         false,
 	}
 
 	//Creates the user in the database

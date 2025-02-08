@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"joshuamURD/go-auth-api/pkgs/auth"
 	"joshuamURD/go-auth-api/pkgs/controllers"
 	"joshuamURD/go-auth-api/pkgs/db"
@@ -20,6 +21,21 @@ func main() {
 
 	//Initialises a hasher with the default cost of bcrypt
 	hasher := hash.NewBcryptHasher(bcrypt.DefaultCost)
+
+	//Initialises the key manager with the private key path
+	keyManager := auth.NewKeyManager("private.pem", "public.pem")
+
+	//Ensures that the keys exist
+	if err := keyManager.EnsureKeys(); err != nil {
+		log.Fatalf("Failed to ensure keys: %v", err)
+	}
+	fmt.Println("Keys ensured")
+
+	//Loads the private key
+	privateKey, err := keyManager.LoadPrivateKey()
+	if err != nil {
+		log.Fatalf("Failed to load private key: %v", err)
+	}
 
 	//Initialises the auth service with the private key
 	authService := auth.NewJWTAuthService(privateKey)

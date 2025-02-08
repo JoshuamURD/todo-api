@@ -15,10 +15,8 @@ import (
 type AuthService interface {
 	// Authenticate creates authentication state for a user and handles the response
 	Authenticate(ctx context.Context, userID string, w http.ResponseWriter) (*AuthResponse, error)
-	// Validate checks if the request is authenticated and returns claims
-	ValidateRequest(r *http.Request) (*AuthClaims, error)
 	// Refresh updates the authentication state
-	RefreshAuth(ctx context.Context, r *http.Request, w http.ResponseWriter) error
+	RefreshAuth(ctx context.Context, refreshToken string) (*AuthResponse, error)
 }
 
 // AuthClaims represents generic authentication claims
@@ -145,15 +143,15 @@ func (j *JWTAuthService) Validate(tokenString string) (*JWTClaims, error) {
 }
 
 // Refresh generates a new access token using a valid refresh token
-func (j *JWTAuthService) Refresh(ctx context.Context, refreshToken string) (string, error) {
+func (j *JWTAuthService) RefreshAuth(ctx context.Context, refreshToken string) (*AuthResponse, error) {
 	claims, err := j.Validate(refreshToken)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Ensure the token is a refresh token
 	if claims.Type != "refresh" {
-		return "", errors.New("invalid token type")
+		return nil, errors.New("invalid token type")
 	}
 
 	// Generate new access token
@@ -166,5 +164,15 @@ func (j *JWTAuthService) Refresh(ctx context.Context, refreshToken string) (stri
 		},
 	}
 
-	return j.generateToken(accessClaims)
+	accessToken, err := j.generateToken(accessClaims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	authResponse := AuthResponse{
+		AccessToken: accessToken,
+		ExpiresAt:   time.Now().Add(15 * time.Minute),
+	}
+
+	return &authResponse, nil
 }
