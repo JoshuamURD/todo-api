@@ -1,6 +1,7 @@
 package main
 
 import (
+	"joshuamURD/go-auth-api/pkgs/auth"
 	"joshuamURD/go-auth-api/pkgs/controllers"
 	"joshuamURD/go-auth-api/pkgs/db"
 	"joshuamURD/go-auth-api/pkgs/hash"
@@ -20,9 +21,12 @@ func main() {
 	//Initialises a hasher with the default cost of bcrypt
 	hasher := hash.NewBcryptHasher(bcrypt.DefaultCost)
 
+	//Initialises the auth service with the private key
+	authService := auth.NewJWTAuthService(privateKey)
+
 	//Intialise the controllers with the hasher and the database
 	//The controller is used to handle the requests and responses
-	registerController := controllers.NewController(hasher, &database)
+	registerController := controllers.NewController(hasher, &database, authService)
 
 	//Initialises the mux and add the routes to it
 	mux := http.NewServeMux()

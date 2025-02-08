@@ -21,6 +21,13 @@ func (rc *Controller) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Check if already logged in
+	_, err := r.Cookie("refresh_token")
+	if err == nil {
+		http.Error(w, "Already logged in", http.StatusUnauthorized)
+		return
+	}
+
 	//Decodes the request body into a registerRequest struct and checks for errors
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -34,7 +41,7 @@ func (rc *Controller) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//
+	//Hashes the password
 	hashedPassword, err := rc.hasher.Hash(req.Password)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -53,9 +60,17 @@ func (rc *Controller) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get auth response with access token
+	authResp, err := rc.auth.Authenticate(r.Context(), user.ID.String(), w)
+	if err != nil {
+		http.Error(w, "Authentication failed", http.StatusInternalServerError)
+		return
+	}
+
 	//Writes a success message to the response
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "User registered successfully",
+		"message":      "User registered successfully",
+		"access_token": authResp.AccessToken,
 	})
 }
